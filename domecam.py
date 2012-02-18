@@ -20,46 +20,53 @@ import time
 from bpy.props import PointerProperty, StringProperty, BoolProperty, EnumProperty, IntProperty, CollectionProperty
 
 modes = (
-	('mirror', 'Fisheye-Mirror', ''),
-	('5cam', '5 Cameras', ''),
-	('6cam', '6 Cameras', ''),
+	('mirror', 'Fisheye (Mirror)', ''),
+	('multicam', 'Fisheye (Multicam)', ''),
+	('equi', 'Equirectangular', ''),
 	)
 
-class domeCamList(bpy.types.PropertyGroup):
-	name = bpy.props.StringProperty(name="DomeCam Object", default="")
+class multiCamList(bpy.types.PropertyGroup):
+	name = bpy.props.StringProperty(name="MultiCam Object", default="")
 
 class OpUpdateList(bpy.types.Operator):
-	bl_label = "Update DomeCamList"
+	bl_label = "Update Multi Camera List"
 	bl_idname = "dc.updatelist"
 	
 	def execute(self, context):
 		sce= bpy.context.scene
-		domecamlist= sce.dc_render.domecamlist
+		multiCamList= sce.dc_render.multiCamList
 		# clear list
-		n=len(domecamlist)
+		n=len(multiCamList)
 		for i in range(0,n+1):
-			domecamlist.remove(n-i)
+			multiCamList.remove(n-i)
 	
 		for index, object in enumerate(bpy.context.scene.objects): #iterate over all objects
-			if object.is_domecam:
-				myitem = domecamlist.add()
+			if (object.domecam_type == 'MultiCam'):
+				myitem = multiCamList.add()
 				myitem.name = object.name
 #				print(object.name)
 		
-		if (len(domecamlist)==0):
+		if (len(multiCamList)==0):
 			sce.dc_render.cur_cam = ""
 		
 		return {'FINISHED'}
 
-def onUpdateResolution(self, context):
+def onUpdateResolution_select(self, context):
 	dc = context.scene.dc_render
 	
 	if (dc.resolution_select != "custom"):
 		dc.resolution = int(dc.resolution_select)
 	
+def onUpdateResolution(self, context):
+	rd = context.scene.render
+	dc = context.scene.dc_render
 	
+	rd.resolution_x = dc.resolution
+	rd.resolution_y = dc.resolution
+	rd.resolution_percentage = 100
 
-resolutions = (
+
+resolutions_fisheye = (
 	('512', '512', '512x512'),
 	('1024', '1024', '1024x1024'),
 	('2048', '2048', '2048x2048'),
@@ -68,32 +75,39 @@ resolutions = (
 	('custom', 'custom', 'select your custom resolution'),
 	)
 
+image_format = (
+	('png', 'PNG', ''),
+	('jpg', 'JPG', ''),
+	('tiff', 'TIFF', ''),
+	)
+
 class DCSettings(bpy.types.PropertyGroup):
-	nonapath = StringProperty(name='Path to nona', description='full path to nona binary', maxlen=1024, subtype='FILE_PATH', default='/Applications/hugin.app/Contents/MacOS/nona')
-	cur_cam = StringProperty(name='DomeCam Object', description='Select DomeCam to use', maxlen=1024, default='')
+	nonapath = StringProperty(name='Path to nona', description='full path to nona binary', maxlen=1024, subtype='FILE_PATH', default='/Applications/Hugin/HuginTools/nona')
+	cur_cam = StringProperty(name='Camera (Multi)', description='Select Multi Camera System to use', maxlen=1024, default='')
 	renderpath = StringProperty(name='Renderpath', description='Renderpath', maxlen=1024, subtype='DIR_PATH', default='//render')
 	filename = StringProperty(name='Filename', description='filename (use # for framenumber)', maxlen=256, subtype='FILENAME', default='######')
 	
-	resolution = IntProperty(name='Resolution', description='Resolution of finished Domemaster', default=1024, min=0, max=16384)
-	resolution_select = EnumProperty(items=resolutions, name='Resolution', description='Resolution of finished Domemaster', default='1024', update=onUpdateResolution)
+	resolution = IntProperty(name='Resolution', description='Resolution of finished Domemaster', default=1024, min=0, max=10000, update=onUpdateResolution)
+	resolution_select = EnumProperty(items=resolutions_fisheye, name='Resolution', description='Resolution of finished Domemaster', default='1024', update=onUpdateResolution_select)
 	
-	fov = IntProperty(name='Field of View', description='Field of View (use values > 180 for compression)', default=180, min=180, max=250)
+	fov = IntProperty(name='Field of View', description='Field of View (use values > 180 for compression)', default=180, min=180, max=360)
 	
 	stamp_text = StringProperty(name='Stamp Text', description='Text for Stamp', maxlen=1024, default='')
 	
-	domecam_mode = EnumProperty(items=modes, name='DomeCam Mode', description='Select 5-camera-setup, 6-camera-setup or fisheye mirror lens', default='5cam')
+	domecam_mode = EnumProperty(items=modes, name='DomeCam Mode', description='Select 5-camera-setup, 6-camera-setup or fisheye mirror lens', default='multicam')
+#	use_domecam = BoolProperty(name='Use Domecam', description='Use Domecam System for Render', default=False)
 	
 	use_comp = BoolProperty(name='Use compositor on Domemaster', description='Use Postprocessing on Domemaster', default=True)
 	use_border = BoolProperty(name='Use border render', description='Use border rendering to reduce rendertime', default=True)
 	keep_files = BoolProperty(name='Keep temporary files', description='if unchecked, the camera images and nona project file will be deleted', default=True)
 	
-	domecamlist = bpy.props.CollectionProperty(type = domeCamList)
-	domecamlist_index = bpy.props.IntProperty(min = -1, default = -1)
+	multiCamList = bpy.props.CollectionProperty(type = multiCamList)
+	multiCamList_index = bpy.props.IntProperty(min = -1, default = -1)
 
 
-class OpAdd5Cams(bpy.types.Operator):
-	bl_label = "Add 5-Camera Setup to scene"
-	bl_idname = "dc.add_5cams"
+class OpAddMultiCams(bpy.types.Operator):
+	bl_label = "Add Multi-Camera Setup to scene"
+	bl_idname = "dc.add_multi_cams"
 	
 	def execute(self, context):
 		scene = bpy.context.scene
@@ -109,12 +123,14 @@ class OpAdd5Cams(bpy.types.Operator):
 		cam_ob_left = bpy.data.objects.new(name="DomeCam_Left", object_data=cam_data)
 		cam_ob_right = bpy.data.objects.new(name="DomeCam_Right", object_data=cam_data)
 		cam_ob_top = bpy.data.objects.new(name="DomeCam_Top", object_data=cam_data)
+		cam_ob_down = bpy.data.objects.new(name="DomeCam_Down", object_data=cam_data)
 		
 		cam_ob_front.domecam_view = "front"
 		cam_ob_back.domecam_view = "back"
 		cam_ob_left.domecam_view = "left"
 		cam_ob_right.domecam_view = "right"
 		cam_ob_top.domecam_view = "top"
+		cam_ob_down.domecam_view = "down"
 		
 		# instance the camera object in the scene
 		scene.objects.link(cam_ob_front)
@@ -122,6 +138,7 @@ class OpAdd5Cams(bpy.types.Operator):
 		scene.objects.link(cam_ob_left)
 		scene.objects.link(cam_ob_right)
 		scene.objects.link(cam_ob_top)
+		scene.objects.link(cam_ob_down)
 		
 		cam_ob_front.hide = False
 		cam_ob_front.hide_select = True
@@ -133,24 +150,28 @@ class OpAdd5Cams(bpy.types.Operator):
 		cam_ob_right.hide_select = True
 		cam_ob_top.hide = False
 		cam_ob_top.hide_select = True
+		cam_ob_down.hide = True
+		cam_ob_down.hide_select = True
 		
 		cam_ob_front.location = 0.0, 0.0, 0.0
 		cam_ob_back.location  = 0.0, 0.0, 0.0
 		cam_ob_left.location  = 0.0, 0.0, 0.0
 		cam_ob_right.location = 0.0, 0.0, 0.0
 		cam_ob_top.location	  = 0.0, 0.0, 0.0
+		cam_ob_down.location  = 0.0, 0.0, 0.0
 		
 		cam_ob_front.rotation_euler = math.radians(90.0), math.radians(0.0), math.radians(0.0)
 		cam_ob_back.rotation_euler	= math.radians(90.0), math.radians(0.0), math.radians(180.0)
 		cam_ob_left.rotation_euler	= math.radians(90.0), math.radians(0.0), math.radians(90.0)
 		cam_ob_right.rotation_euler = math.radians(90.0), math.radians(0.0), math.radians(-90.0)
 		cam_ob_top.rotation_euler	= math.radians(180.0), math.radians(0.0), math.radians(0.0)
+		cam_ob_down.rotation_euler	= math.radians(0.0), math.radians(0.0), math.radians(0.0)
 		
 		scene.camera = cam_ob_front		  # set the active camera
 		
 		cam_empty = bpy.data.objects.new("DomeCam",None)
 		scene.objects.link(cam_empty)
-		cam_empty.is_domecam = True
+		cam_empty.domecam_type = 'MultiCam'
 		cam_empty.empty_draw_type = "SINGLE_ARROW"
 		cam_empty.empty_draw_size = 1
 		
@@ -159,6 +180,7 @@ class OpAdd5Cams(bpy.types.Operator):
 		cam_ob_left.parent=cam_empty
 		cam_ob_right.parent=cam_empty
 		cam_ob_top.parent=cam_empty
+		cam_ob_down.parent=cam_empty
 		
 		bpy.ops.dc.updatelist()
 		scene.dc_render.cur_cam = cam_empty.name
@@ -205,9 +227,8 @@ class OpAddFisheyeMirror(bpy.types.Operator):
 		#adjust camera pos + settings
 		
 		
-		bpy.ops.object.add()
-		cam_empty = bpy.context.active_object
-		cam_empty.name = "FisheyeCam"
+		cam_empty = bpy.data.objects.new("FisheyeCam",None)
+		scene.objects.link(cam_empty)
 		cam_empty.domecam_type = "Fisheye"
 		cam_empty.empty_draw_type = "SINGLE_ARROW"
 		cam_empty.empty_draw_size = 1
@@ -335,49 +356,6 @@ class OpAddNodes(bpy.types.Operator):
 		
 		return {'FINISHED'}
 
-def getScriptpath():
-	'''Support user defined scripts directory
-	   Find the first ocurrence of domecam in possible script paths
-	   and return it as preset path'''
-	scriptpath = ""
-	for p in bpy.utils.script_paths():
-		scriptpath = os.path.join(p, 'addons', 'domecam')
-		if os.path.exists(scriptpath):
-			break
-	return scriptpath
-
-class ModalTimerOperator(bpy.types.Operator):
-	'''Operator which runs its self from a timer.'''
-	bl_idname = "dc.modal_timer_operator"
-	bl_label = "Modal Timer Operator"
-
-	_timer = None
-
-	def modal(self, context, event):
-		if event.type == 'ESC':
-			return self.cancel(context)
-
-		if event.type == 'TIMER':
-			# change theme color, silly!
-			#color = context.user_preferences.themes[0].view_3d.back
-			#color.s = 1.0
-			#color.h += 0.01
-			#self.report({'INFO'}, "Rendering")
-			print(time.strftime("%a, %d %b %Y %H:%M:%S +0000", time.gmtime()))
-
-		return {'PASS_THROUGH'}
-
-	def execute(self, context):
-		context.window_manager.modal_handler_add(self)
-		self._timer = context.window_manager.event_timer_add(10, context.window)
-		return {'RUNNING_MODAL'}
-
-	def cancel(self, context):
-		context.window_manager.event_timer_remove(self._timer)
-		return {'CANCELLED'}
-
-
-
 class OpRenderDomemaster(bpy.types.Operator):
 	bl_label = "Render Domemaster"
 	bl_idname = "dc.render_domemaster"
@@ -425,7 +403,10 @@ class OpRenderDomemaster(bpy.types.Operator):
 				sce.render.border_max_y = 1
 			else:
 				sce.render.use_border = False
-				
+			
+			if (dc.fov <=250 and cam.domecam_view == 'down'):
+				continue
+			
 			sce.render.filepath = os.path.join(renderpath,cam.domecam_view,filename)
 			#self.report({'INFO'}, "Rendering")
 			#bpy.ops.wm.redraw_timer(type='DRAW_WIN_SWAP', iterations=1)
@@ -446,6 +427,8 @@ class OpRenderDomemaster(bpy.types.Operator):
 			file.write('i w'+imgres+' h'+imgres+' f0 v90 r90 p0 y-90 d-1 e0 n"'+os.path.join('..','left',filename+'.png')+'"\n')
 			file.write('i w'+imgres+' h'+imgres+' f0 v90 r0 p-90 y0 n"'+os.path.join('..','front',filename+'.png')+'"\n')
 			file.write('i w'+imgres+' h'+imgres+' f0 v90 r180 p90 y0 d-1 e0 n"'+os.path.join('..','back',filename+'.png')+'"\n')
+			if (dc.fov > 250):
+				file.write('i w'+imgres+' h'+imgres+' f0 v90 r0 p180 y0 n"'+os.path.join('..','down',filename+'.png')+'"\n')
 			file.close()
 			print("processing domemaster")
 			if (not os.path.exists(os.path.join(renderpath,"dm"))):
@@ -457,6 +440,7 @@ class OpRenderDomemaster(bpy.types.Operator):
 		
 		#postprocessing
 		if (dc.use_comp):
+			print("postprocessing domemaster")
 			#load rendered image into input node
 			if (filename+'.png' in bpy.data.images):
 				image = bpy.data.images[filename+'.png']
@@ -562,6 +546,11 @@ class DomeCamRenderPanel(bpy.types.Panel):
 	bl_region_type = 'WINDOW'
 	bl_context = "render"
 	
+#	def draw_header(self, context):
+#		rd = context.scene.render
+#		dc = context.scene.dc_render
+#		self.layout.prop(dc, "use_domecam", text="")
+	
 	def draw(self, context):
 		layout = self.layout
 		rd = context.scene.render
@@ -571,61 +560,82 @@ class DomeCamRenderPanel(bpy.types.Panel):
 		row = layout.row()
 		row.prop(dc, 'domecam_mode', expand=True)
 		
-		row = layout.row()
-		row.operator("dc.add_5cams", text="Add Cams", icon='CAMERA_DATA')
-		if dc.cur_cam:
-			row.operator("dc.remove_cams", text="Remove Cams", icon='CAMERA_DATA')
-		#row = layout.row()
-		#row.operator("dc.updatelist")
-		row = layout.row(align=True)
-		row.prop_search(dc, "cur_cam",	dc, "domecamlist", icon='OUTLINER_OB_CAMERA')
-		row.operator("dc.updatelist", text="", icon='FILE_REFRESH')
+		if (dc.domecam_mode == 'multicam'):
+			row = layout.row(align=True)
+			row.prop_search(dc, "cur_cam",	dc, "multiCamList", icon='OUTLINER_OB_CAMERA')
+			row.operator("dc.updatelist", text="", icon='FILE_REFRESH')
+			row.operator("dc.add_multi_cams", text="", icon='ZOOMIN')
+			if dc.cur_cam:
+				row.operator("dc.remove_cams", text="", icon='ZOOMOUT')
 		
-		if dc.cur_cam:
-			row = layout.row()
-			row.operator("dc.render_image", text="Image", icon='RENDER_STILL')
-			row.operator("dc.render_animation", text="Animation", icon='RENDER_ANIMATION')
-			#col = layout.column()
-			row = layout.row()
-			row.prop(dc, 'nonapath')
-			row = layout.row()
-			row.prop(dc, 'renderpath')
-			row = layout.row()
-			row.prop(dc, 'filename')
-			row = layout.row()
-			layout.label(text="Resolution:", icon='NONE')
+			if dc.cur_cam:
+				row = layout.row()
+				row.operator("dc.render_image", text="Image", icon='RENDER_STILL')
+				row.operator("dc.render_animation", text="Animation", icon='RENDER_ANIMATION')
+				#col = layout.column()
+				row = layout.row()
+				row.prop(dc, 'nonapath')
+				row = layout.row()
+				row.prop(dc, 'renderpath')
+				row = layout.row()
+				row.prop(dc, 'filename')
+				row = layout.row()
+				layout.label(text="Resolution:", icon='NONE')
 			
-			col = layout.column(align=True)
-			row = col.row()
-			row.prop(dc, 'resolution_select', expand=True)
-			if (dc.resolution_select == "custom"): #(bpy.types.RENDER_MT_framerate_presets.bl_label == "Custom"):
-				col.prop(dc, "resolution")
-			
-			
-			row = layout.row()
-			row.prop(dc, 'fov')
-			row = layout.row()
-			row.prop(dc, 'use_border')
-			row = layout.row()
-			row.prop(dc, 'use_comp')
-			#if (dc.use_comp):
-			row = layout.row()
-			sub = row.column()
-			sub.active = dc.use_comp
-			sub.operator("dc.add_nodes")
-			sub.prop(dc, 'stamp_text')
+				col = layout.column(align=True)
+				row = col.row()
+				row.prop(dc, 'resolution_select', expand=True)
+				if (dc.resolution_select == "custom"): #(bpy.types.RENDER_MT_framerate_presets.bl_label == "Custom"):
+					col.prop(dc, "resolution")
 			
 			
-			row = layout.row()
-			row.prop(dc, 'keep_files')
-
+				row = layout.row()
+				row.prop(dc, 'fov')
+				row = layout.row()
+				row.prop(dc, 'use_border')
+				row = layout.row()
+				row.prop(dc, 'use_comp')
+				#if (dc.use_comp):
+				row = layout.row()
+				sub = row.column()
+				sub.active = dc.use_comp
+				sub.operator("dc.add_nodes")
+				sub.prop(dc, 'stamp_text')
+			
+			
+				row = layout.row()
+				row.prop(dc, 'keep_files')
+		elif (dc.domecam_mode == "equi"):
+			row = layout.row(align=True)
+			row.prop_search(dc, "cur_cam",	dc, "multiCamList", icon='OUTLINER_OB_CAMERA')
+			row.operator("dc.updatelist", text="", icon='FILE_REFRESH')
+			row.operator("dc.add_multi_cams", text="", icon='ZOOMIN')
+			if dc.cur_cam:
+				row.operator("dc.remove_cams", text="", icon='ZOOMOUT')
+		
+			if dc.cur_cam:
+				row = layout.row()
+				row.operator("dc.render_image", text="Image", icon='RENDER_STILL')
+				row.operator("dc.render_animation", text="Animation", icon='RENDER_ANIMATION')
+				#col = layout.column()
+				row = layout.row()
+				row.prop(dc, 'nonapath')
+				row = layout.row()
+				row.prop(dc, 'renderpath')
+				row = layout.row()
+				row.prop(dc, 'filename')
+				
+				row = layout.row()
+				row.prop(dc, 'use_comp', text="Use Compositor on Panorama")
+				row = layout.row()
+				row.prop(dc, 'keep_files')
 
 
 		
 bpy.utils.register_class(DomeCamRenderPanel)
 
 bpy.types.Object.domecam_view = bpy.props.StringProperty()
-bpy.types.Object.is_domecam = bpy.props.BoolProperty()
+bpy.types.Object.domecam_type = bpy.props.StringProperty()
 
 
 def register():
