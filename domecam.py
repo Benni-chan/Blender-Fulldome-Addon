@@ -6,8 +6,8 @@ bl_info = {
 	"location": "Properties -> Render",
 	"description": "Renders a Domemaster using a 5-camera-setup",
 	"warning": "",
-	"wiki_url": "",
-	"tracker_url": "",
+	"wiki_url": "https://github.com/Benni-chan/Blender-Fulldome-Addon/wiki",
+	"tracker_url": "https://github.com/Benni-chan/Blender-Fulldome-Addon/issues",
 	"category": "Render"}
 
 
