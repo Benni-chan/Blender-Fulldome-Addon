@@ -32,41 +32,37 @@ class mirrorCamList(bpy.types.PropertyGroup):
 	name = bpy.props.StringProperty(name="MirrorCam Object", default="")
 
 class OpUpdateList(bpy.types.Operator):
-	bl_label = "Update Multi Camera List"
+	bl_label = "Update Camera Lists"
 	bl_idname = "dc.updatelist"
 	
 	def execute(self, context):
-		sce= bpy.context.scene
-		multiCamList= sce.dc_render.multiCamList
-		# clear list
-		n=len(multiCamList)
-		for i in range(0,n+1):
-			multiCamList.remove(n-i)
-	
-		for index, object in enumerate(bpy.context.scene.objects): #iterate over all objects
-			if (object.domecam_type == 'MultiCam'):
-				myitem = multiCamList.add()
-				myitem.name = object.name
-#				print(object.name)
+		sce = bpy.context.scene
 		
-		if (len(multiCamList)==0):
-			sce.dc_render.cur_multi_cam = ""
+		lists = [
+		#      Type                List                      cur_cam
+			('MultiCam', sce.dc_render.multiCamList,sce.dc_render.cur_multi_cam),
+			('MirrorCam', sce.dc_render.mirrorCamList,sce.dc_render.cur_mirror_cam),
+			]
 		
-		#update fisheye_mirror_list
-		mirrorCamList=sce.dc_render.mirrorCamList
-		# clear list
-		n=len(mirrorCamList)
-		for i in range(0,n+1):
-			mirrorCamList.remove(n-i)
-	
-		for index, object in enumerate(bpy.context.scene.objects): #iterate over all objects
-			if (object.domecam_type == 'MirrorCam'):
-				myitem = mirrorCamList.add()
-				myitem.name = object.name
-#				print(object.name)
-		
-		if (len(mirrorCamList)==0):
-			sce.dc_render.cur_mirror_cam = ""
+		for val in lists:
+			cam_type = val[0]
+			cam_list = val[1]
+			cam_cur  = val[2]
+			
+			# clear list
+			n=len(cam_list)
+			for i in range(0,n+1):
+				cam_list.remove(n-i)
+
+			# fill list
+			for index, object in enumerate(bpy.context.scene.objects): #iterate over all objects
+				if (object.domecam_type == cam_type):
+					myitem = cam_list.add()
+					myitem.name = object.name
+					
+			# clear current camera, if list is empty
+			if (not cam_list):
+				cam_cur = ""
 		
 		return {'FINISHED'}
 
