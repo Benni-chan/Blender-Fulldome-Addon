@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "DomeCam Render",
 	"author": "Benjamin Waller",
-	"version": (0, 2),
+	"version": (0, 3),
 	"blender": (2, 6, 0),
 	"location": "Properties -> Render",
 	"description": "Renders a Domemaster using a 5-camera-setup",
@@ -218,12 +218,12 @@ class OpAddMirrorCam(bpy.types.Operator):
 		scene = bpy.context.scene
 		
 		#create camera
-		cam_data = bpy.data.cameras.new("MirrorCam")
+		cam_data = bpy.data.cameras.new("MirrorCam_Camera")
 		cam_data.type = 'ORTHO'
 		cam_data.ortho_scale = 0.850
 		cam_data.clip_start = 0.001
 		cam_data.clip_end = 1.000
-		cam_ob = bpy.data.objects.new(name="MirrorCam", object_data=cam_data)
+		cam_ob = bpy.data.objects.new(name="MirrorCam_Camera", object_data=cam_data)
 
 		cam_ob.domecam_view = "fisheye"
 
@@ -290,7 +290,7 @@ class OpAddMirrorCam(bpy.types.Operator):
 
 		mirror_mesh = bpy.data.meshes.new("DomeMirror")
 		mirror_mesh.from_pydata(verts,[],faces)
-		
+		mirror_mesh.update(calc_edges=True)
 		mirror_mesh.faces.foreach_set("use_smooth", [True] * len(mirror_mesh.faces)) #smooth array from face
 		
 		mirror = bpy.data.objects.new("DomeMirror",mirror_mesh)
@@ -324,6 +324,8 @@ class OpAddMirrorCam(bpy.types.Operator):
 		
 		plane_mesh = bpy.data.meshes.new("MirrorCam_Plane")
 		plane_mesh.from_pydata(verts,[],faces)
+		
+		plane_mesh.update(calc_edges=True)
 		
 		#plane_mesh.faces.foreach_set("use_smooth", [True] * len(plane_mesh.faces)) #smooth array from face
 		
@@ -748,6 +750,9 @@ class DomeCamRenderPanel(bpy.types.Panel):
 				row = layout.row()
 				row.prop(dc, 'keep_files')
 		elif (dc.domecam_mode == "equi"):
+			row = layout.row()
+			row.label("not yet")
+			'''
 			row = layout.row(align=True)
 			row.prop_search(dc, "cur_multi_cam",	dc, "multiCamList", icon='OUTLINER_OB_CAMERA')
 			row.operator("dc.updatelist", text="", icon='FILE_REFRESH')
@@ -771,7 +776,7 @@ class DomeCamRenderPanel(bpy.types.Panel):
 				row.prop(dc, 'use_comp', text="Use Compositor on Panorama")
 				row = layout.row()
 				row.prop(dc, 'keep_files')
-
+				'''
 		elif (dc.domecam_mode == "mirror"):
 			row = layout.row(align=True)
 			row.prop_search(dc, "cur_mirror_cam",	dc, "mirrorCamList", icon='OUTLINER_OB_CAMERA')
@@ -781,6 +786,14 @@ class DomeCamRenderPanel(bpy.types.Panel):
 				row.operator("dc.remove_mirror_cams", text="", icon='ZOOMOUT')
 
 			if dc.cur_mirror_cam:
+				row = layout.row()
+				layout.label(text="Resolution:", icon='NONE')
+				col = layout.column(align=True)
+				row = col.row()
+				row.prop(dc, 'resolution_select', expand=True)
+				if (dc.resolution_select == "custom"): #(bpy.types.RENDER_MT_framerate_presets.bl_label == "Custom"):
+					col.prop(dc, "resolution")
+					
 				row = layout.row()
 				row.label("Use Blenders own configurations")
 
