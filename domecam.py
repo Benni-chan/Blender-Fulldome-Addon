@@ -1,11 +1,11 @@
 bl_info = {
 	"name": "DomeCam Render",
-	"author": "Benjamin Waller",
+	"author": "Benjamin Waller, mirror camera rig by Ron Proctor (Ott Planetarium)",
 	"version": (0, 3),
 	"blender": (2, 6, 0),
 	"location": "Properties -> Render",
-	"description": "Renders a Domemaster using a 5-camera-setup",
-	"warning": "",
+	"description": "Renders a Full-Frame or Equirectangular Fisheye",
+	"warning": "for multicam, Hugin must be installed. While rendering, Blender will hang!",
 	"wiki_url": "https://github.com/Benni-chan/Blender-Fulldome-Addon/wiki",
 	"tracker_url": "https://github.com/Benni-chan/Blender-Fulldome-Addon/issues",
 	"category": "Render"}
@@ -80,6 +80,16 @@ def onUpdateResolution(self, context):
 	rd.resolution_y = dc.resolution
 	rd.resolution_percentage = 100
 
+def onChangeMode(self, context):
+	sce = context.scene
+	rd = sce.render
+	dc = sce.dc_render
+
+	if (dc.domecam_mode == 'mirror'):
+		sce.camera = sce.objects[dc.cur_mirror_cam].children[1]
+	else:
+		sce.camera = sce.objects[dc.cur_multi_cam].children[5]	
+
 
 resolutions_fisheye = (
 	('512', '512', '512x512'),
@@ -113,7 +123,7 @@ class DCSettings(bpy.types.PropertyGroup):
 	
 	stamp_text = StringProperty(name='Stamp Text', description='Text for Stamp', maxlen=1024, default='')
 	
-	domecam_mode = EnumProperty(items=modes, name='DomeCam Mode', description='Select 5-camera-setup, 6-camera-setup or fisheye mirror lens', default='multicam')
+	domecam_mode = EnumProperty(items=modes, name='DomeCam Mode', description='Select 5-camera-setup, 6-camera-setup or fisheye mirror lens', default='multicam', update=onChangeMode)
 #	use_domecam = BoolProperty(name='Use Domecam', description='Use Domecam System for Render', default=False)
 	
 	use_comp = BoolProperty(name='Use compositor on Domemaster', description='Use Postprocessing on Domemaster', default=True)
@@ -631,11 +641,14 @@ class OpRenderDomemaster(bpy.types.Operator):
 		if (not dc.keep_files):
 			print("deleting temporary files")
 			for cam in sce.objects[dc.cur_multi_cam].children:
-				os.remove(os.path.join(renderpath,cam.domecam_view,filename+".png"))
+				if (os.path.exists(os.path.join(renderpath,cam.domecam_view,filename+".png"))):
+					os.remove(os.path.join(renderpath,cam.domecam_view,filename+".png"))
 			
-			os.remove(os.path.join(renderpath,"nona",filename+".txt"))
+			if (os.path.exists(os.path.join(renderpath,"nona",filename+".txt"))):
+				os.remove(os.path.join(renderpath,"nona",filename+".txt"))
 			if (dc.use_comp):
-				os.remove(os.path.join(renderpath,'dm',filename+".png"))
+				if (os.path.exists(os.path.join(renderpath,'dm',filename+".png"))):
+					os.remove(os.path.join(renderpath,'dm',filename+".png"))
 			
 			#delete empty dirs
 			for camdir in os.listdir(renderpath):
@@ -719,9 +732,9 @@ class DomeCamRenderPanel(bpy.types.Panel):
 				row.prop(dc, 'renderpath')
 				row = layout.row()
 				row.prop(dc, 'filename')
-				row = layout.row()
-				row.label("File Format")
-				row.prop(dc, 'file_format', expand=True)
+				#row = layout.row()
+				#row.label("File Format")
+				#row.prop(dc, 'file_format', expand=True)
 				
 				row = layout.row()
 				layout.label(text="Resolution:", icon='NONE')
