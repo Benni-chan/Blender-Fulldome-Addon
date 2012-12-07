@@ -1,7 +1,7 @@
 bl_info = {
     "name": "DomeCam Render",
     "author": "Benjamin Waller, mirror camera rig by Ron Proctor (Ott Planetarium)",
-    "version": (0, 3),
+    "version": (0, 4),
     "blender": (2, 6, 0),
     "location": "Properties -> Render",
     "description": "Renders a Full-Frame or Equirectangular Fisheye",
@@ -109,7 +109,7 @@ image_format = (
 class DCSettings(bpy.types.PropertyGroup):
     nonapath = StringProperty(name='Path to nona', description='full path to nona binary', maxlen=1024, subtype='FILE_PATH', default='/Applications/Hugin/HuginTools/nona')
     renderpath = StringProperty(name='Renderpath', description='Renderpath', maxlen=1024, subtype='DIR_PATH', default='//render')
-    filename = StringProperty(name='Filename', description='filename (use # for framenumber)', maxlen=256, subtype='FILENAME', default='######')
+    filename = StringProperty(name='Filename', description='filename (use # for framenumber)', maxlen=256, subtype='FILE_NAME', default='######')
 
     cur_multi_cam = StringProperty(name='Camera (Multi)', description='Select Multi Camera System to use', maxlen=256, default='')
     cur_mirror_cam = StringProperty(name='Camera (Mirror)', description='Select Mirror Camera System to use', maxlen=256, default='')
