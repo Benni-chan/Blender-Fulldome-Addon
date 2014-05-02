@@ -3,7 +3,7 @@ Blender-Fulldome-Addon
 
 Download and install Hugin (http://hugin.sourceforge.net/download/).
 
-Download DomeCam (https://github.com/Benni-chan/Blender-Fulldome-Addon). To install the Blender addon, move the domecam.py into your scripts/addons folder.
+Download DomeCam. To install the Blender addon, move the domecam.py into your scripts/addons folder.
 
 Activate DomeCam inside of Blender.  Just as any other addon: User Preferences -> Addons -> Install Addon
 
