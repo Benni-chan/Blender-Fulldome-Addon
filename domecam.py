@@ -1,8 +1,8 @@
 bl_info = {
     "name": "DomeCam Render",
     "author": "Benjamin Waller, mirror camera rig by Ron Proctor (Ott Planetarium)",
-    "version": (0, 4),
-    "blender": (2, 6, 0),
+    "version": (0, 5),
+    "blender": (2, 7, 0),
     "location": "Properties -> Render",
     "description": "Renders a Full-Frame or Equirectangular Fisheye",
     "warning": "for multicam, Hugin must be installed. While rendering, Blender will hang!",
@@ -301,7 +301,7 @@ class OpAddMirrorCam(bpy.types.Operator):
         mirror_mesh = bpy.data.meshes.new("DomeMirror")
         mirror_mesh.from_pydata(verts,[],faces)
         mirror_mesh.update(calc_edges=True)
-        mirror_mesh.faces.foreach_set("use_smooth", [True] * len(mirror_mesh.faces)) #smooth array from face
+        mirror_mesh.polygons.foreach_set("use_smooth", [True] * len(mirror_mesh.polygons)) #smooth array from face
         
         mirror = bpy.data.objects.new("DomeMirror",mirror_mesh)
         scene.objects.link(mirror)
@@ -441,16 +441,16 @@ class OpAddNodes(bpy.types.Operator):
                 tex = bpy.data.textures['DomeCam Black Border']
             
             if (bpy.context.scene.node_tree == None):
-                comp = tree.nodes.new(type='COMPOSITE')
+                comp = tree.nodes.new(type='CompositorNodeComposite')
                 comp.location = (940,340)
             elif ('Composite' not in tree.nodes):
-                comp = tree.nodes.new(type='COMPOSITE')
+                comp = tree.nodes.new(type='CompositorNodeComposite')
                 comp.location = (940,340)
             else:
                 comp = tree.nodes['Composite']
                         
             if ('DomeViewInput' not in tree.nodes):
-                dvi = tree.nodes.new(type='IMAGE')
+                dvi = tree.nodes.new(type='CompositorNodeImage')
                 dvi.name = "DomeViewInput"
                 dvi.label = "DomeMaster Input"
                 dvi.location = (-160,420)
@@ -458,21 +458,28 @@ class OpAddNodes(bpy.types.Operator):
                 dvi = tree.nodes['DomeViewInput']
             
             if ('Viewer' not in tree.nodes):
-                viewer = tree.nodes.new(type='VIEWER')
+                viewer = tree.nodes.new(type='CompositorNodeViewer')
                 viewer.location = (940,140)
             else:
                 viewer = tree.nodes['Viewer']
             
             if ('DomeBorderOverlay' not in tree.nodes):
                 if ("DomeBorderOverlay" not in bpy.data.node_groups):
-                    dbo_group = bpy.data.node_groups.new(type='COMPOSITE', name='DomeBorderOverlay')
-                    dbo_group.inputs.new(type="RGBA", name="Image")
-                    dbo_group.outputs.new(type="RGBA", name="Image")
+                    dbo_tree = bpy.data.node_groups.new(type='CompositorNodeTree', name='DomeBorderOverlay')
+                    group_inputs = dbo_tree.nodes.new('NodeGroupInput')
+                    group_inputs.location = (-350,0)
+                    dbo_tree.inputs.new('NodeSocketColor','Image')
+                    
+                    group_outputs = dbo_tree.nodes.new('NodeGroupOutput')
+                    group_outputs.location = (700,0)
+                    dbo_tree.outputs.new('NodeSocketColor','Image')
                 else:
-                    dbo_group = bpy.data.node_groups['DomeBorderOverlay']
+                    dbo_tree = bpy.data.node_groups['DomeBorderOverlay']
+                    group_inputs = dbo_tree.nodes['Group Input']
+                    group_outputs = dbo_tree.nodes['Group Output']
                 
-                dbo = tree.nodes.new(type='GROUP', group=dbo_group)
-                dbo_tree = dbo.node_tree
+                dbo = tree.nodes.new(type='CompositorNodeGroup')
+                dbo.node_tree = dbo_tree
                 dbo.name = "DomeBorderOverlay"
                 dbo.label = "Black Border Overlay"
                 dbo.location = (690,260)
@@ -481,7 +488,7 @@ class OpAddNodes(bpy.types.Operator):
                 dbo_tree = dbo.node_tree
             
             if ('DM_Mask' not in dbo_tree.nodes):
-                dm_mask = dbo_tree.nodes.new(type='TEXTURE')
+                dm_mask = dbo_tree.nodes.new(type='CompositorNodeTexture')
                 dm_mask.name = "DM_Mask"
                 dm_mask.location = (0, 30)
                 dm_mask.texture = tex
@@ -489,7 +496,7 @@ class OpAddNodes(bpy.types.Operator):
                 dm_mask = dbo_tree.nodes['DM_Mask']
             
             if ('DM_Mask_AlphaOver' not in dbo_tree.nodes):
-                dm_mask_alpha_over = dbo_tree.nodes.new(type='ALPHAOVER')
+                dm_mask_alpha_over = dbo_tree.nodes.new(type='CompositorNodeAlphaOver')
                 dm_mask_alpha_over.name = "DM_Mask_AlphaOver"
                 dm_mask_alpha_over.use_premultiply = True
                 dm_mask_alpha_over.location = (350, 30)
