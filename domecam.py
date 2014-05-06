@@ -471,7 +471,7 @@ class OpAddNodes(bpy.types.Operator):
                     dbo_tree.inputs.new('NodeSocketColor','Image')
                     
                     group_outputs = dbo_tree.nodes.new('NodeGroupOutput')
-                    group_outputs.location = (700,0)
+                    group_outputs.location = (500,0)
                     dbo_tree.outputs.new('NodeSocketColor','Image')
                 else:
                     dbo_tree = bpy.data.node_groups['DomeBorderOverlay']
@@ -508,8 +508,8 @@ class OpAddNodes(bpy.types.Operator):
             dbo_links = dbo_tree.links
             dbo_links.new(dm_mask.outputs['Value'],dm_mask_alpha_over.inputs['Fac'])
             
-            dbo_links.new(dbo_tree.inputs['Image'],dm_mask_alpha_over.inputs[1])
-            dbo_links.new(dbo_tree.outputs['Image'],dm_mask_alpha_over.outputs['Image'])
+            dbo_links.new(group_inputs.outputs['Image'],dm_mask_alpha_over.inputs[1])
+            dbo_links.new(group_outputs.inputs['Image'],dm_mask_alpha_over.outputs['Image'])
             
             links.new(dvi.outputs['Image'],dbo.inputs['Image'])
             links.new(dbo.outputs['Image'],comp.inputs['Image'])
